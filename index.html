@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бюджет</title>
+<style>
+:root{--bg:#eef1ef;--card:#fff;--tx:#14201c;--mut:#5f6f69;--ac:#0f766e;--acx:#fff;--ok:#1b7f4b;--bad:#c0392b;--bd:#d5dcd8;--chip:#e3ebe8}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1513;--card:#18201d;--tx:#e6eeea;--mut:#92a39c;--ac:#34c3b3;--acx:#06201c;--ok:#4cc382;--bad:#ff7b6b;--bd:#2a3531;--chip:#222d29}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:12px;padding-bottom:40px;font-variant-numeric:tabular-nums}
+main{max-width:720px;margin:0 auto;display:grid;gap:12px}
+section{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px}
+h1{font-size:20px;margin:4px 2px 0}
+h2{font-size:16px;margin:0 0 10px}
+input,select,button{font:inherit;color:inherit}
+input,select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg)}
+input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button{cursor:pointer;border:0;border-radius:10px;padding:10px 14px;background:var(--chip)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.chip{padding:10px 14px;border-radius:999px;border:1px solid var(--bd)}
+.chip.on{background:var(--ac);color:var(--acx);border-color:var(--ac);font-weight:600}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row>*{min-width:0}
+.big{font-size:22px;font-weight:700}
+.add{width:100%;background:var(--ac);color:var(--acx);font-weight:700;padding:13px}
+.sum{display:grid;grid-template-columns:1fr auto;gap:4px 12px}
+.sum b{text-align:right}
+.mut{color:var(--mut);font-size:14px}
+.cat{padding:10px 0;border-top:1px solid var(--bd)}
+.cat:first-of-type{border-top:0}
+.cat .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.cat .pct{width:70px;text-align:right;padding:6px 8px}
+.bar{height:8px;border-radius:6px;background:var(--chip);overflow:hidden;margin:6px 0 4px}
+.bar i{display:block;height:100%;background:var(--ac)}
+.bar i.over{background:var(--bad)}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.j{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--bd)}
+.j:first-of-type{border-top:0}
+.x{background:none;color:var(--mut);padding:4px 10px;font-size:18px}
+details summary{cursor:pointer;font-weight:600;padding:2px 0}
+.fx{display:grid;grid-template-columns:1fr 110px auto;gap:8px;margin:8px 0}
+.warn{margin-top:8px;font-size:14px}
+.note{color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Бюджет</h1>
+
+  <section>
+    <h2>Новая трата</h2>
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <input id="amt" inputmode="decimal" placeholder="Сумма, zł" aria-label="Сумма">
+      <input id="dt" type="date" aria-label="Дата">
+    </div>
+    <div class="row"><input id="note" placeholder="Заметка (необязательно)" aria-label="Заметка"></div>
+    <button class="add" id="addBtn">Добавить трату</button>
+  </section>
+
+  <section>
+    <div class="row" style="align-items:center">
+      <h2 style="margin:0;flex:1">Месяц</h2>
+      <input type="month" id="month" style="width:auto" aria-label="Месяц">
+    </div>
+    <div class="sum" id="sum"></div>
+  </section>
+
+  <section>
+    <h2>Категории: план и факт</h2>
+    <div id="cats"></div>
+    <div class="warn" id="pwarn"></div>
+  </section>
+
+  <section>
+    <h2>Покупки за месяц</h2>
+    <div id="jr"></div>
+  </section>
+
+  <section>
+    <details>
+      <summary>Настройки: зарплата и фиксированные платежи</summary>
+      <div style="margin-top:10px">
+        <label class="mut" for="sal">Текущая зарплата, zł</label>
+        <input id="sal" inputmode="decimal">
+        <h2 style="margin-top:14px">Фиксированные платежи</h2>
+        <div id="fixed"></div>
+        <button id="addFx">+ Добавить платёж</button>
+        <h2 style="margin-top:18px">Категории</h2>
+        <div class="mut" style="margin-bottom:6px">Название и процент от остатка после фиксированных платежей</div>
+        <div id="catset"></div>
+        <button id="addCat">+ Добавить категорию</button>
+        <div class="warn" id="pwarn2"></div>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <div class="row">
+      <button id="csv" style="flex:1">Скачать для Excel (CSV)</button>
+    </div>
+    <div class="note">Данные хранятся только в этом браузере на этом устройстве. Не очищай данные сайтов, иначе они пропадут.</div>
+  </section>
+</main>
+
+<script>
+const KEY='budget_v2';
+const DEF={
+  salary:0,
+  fixed:[{n:'YouTube подписка',a:60},{n:'Xbox',a:79},{n:'Мобильный телефон',a:70},{n:'Жильё с коммуналкой',a:805},{n:'Интернет',a:68}],
+  cats:[{id:1,n:'Продукты',p:30},{id:2,n:'Бензин',p:10},{id:3,n:'Свет',p:2.5},{id:4,n:'Газ',p:1.2},{id:5,n:'Бытовая химия и уборка',p:5},{id:6,n:'Личные расходы',p:10},{id:7,n:'Инвестиции',p:15},{id:8,n:'Развлечения',p:10},{id:9,n:'Запас и резерв',p:10},{id:10,n:'Ребёнок',p:6.3}],
+  exp:[]
+};
+let S=load();
+function load(){
+  try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);if(o&&o.cats&&o.fixed&&o.exp)return o}}catch(e){}
+  const d=JSON.parse(JSON.stringify(DEF));
+  try{const r=localStorage.getItem('budget_v1');if(r){const o=JSON.parse(r);
+    if(o&&o.cats&&o.exp){d.salary=o.salary||0;if(o.fixed)d.fixed=o.fixed;
+      d.exp=o.exp.map(e=>{const n=(o.cats[e.c]||{}).n||'';
+        const m=d.cats.find(c=>c.n===n)||(n==='Свет и газ'?d.cats.find(c=>c.n==='Свет'):null)||d.cats[0];
+        return Object.assign({},e,{c:m.id})})}}}catch(e){}
+  return d}
+const cn=id=>(S.cats.find(c=>c.id===id)||{n:'—'}).n;
+const nid=()=>S.cats.reduce((m,c)=>Math.max(m,c.id),0)+1;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const $=id=>document.getElementById(id);
+const num=v=>{const n=parseFloat(String(v).replace(/\s/g,'').replace(',','.'));return isFinite(n)?n:0};
+const fmt=n=>n.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+let month=today().slice(0,7), sel=1;
+
+function render(){
+  // chips
+  if(!S.cats.some(c=>c.id===sel))sel=S.cats.length?S.cats[0].id:0;
+  $('chips').innerHTML=S.cats.map(c=>`<button class="chip ${c.id===sel?'on':''}" data-i="${c.id}">${esc(c.n)}</button>`).join('');
+
+  const fixedSum=S.fixed.reduce((s,f)=>s+num(f.a),0);
+  const rest=num(S.salary)-fixedSum;
+  const mexp=S.exp.filter(e=>e.d.slice(0,7)===month);
+  const factAll=mexp.reduce((s,e)=>s+num(e.a),0);
+  const planAll=rest;
+  const left=rest-factAll;
+  $('sum').innerHTML=
+    `<span>Зарплата</span><b>${fmt(num(S.salary))}</b>
+     <span>Фиксированные платежи</span><b>${fmt(fixedSum)}</b>
+     <span>Остаток после фиксированных</span><b>${fmt(rest)}</b>
+     <span>Потрачено в месяце</span><b>${fmt(factAll)}</b>
+     <span class="big">Осталось</span><b class="big ${left<0?'bad':'ok'}">${fmt(left)}</b>`;
+
+  // categories
+  $('cats').innerHTML=S.cats.map((c,i)=>{
+    const plan=rest*num(c.p)/100;
+    const fact=mexp.filter(e=>e.c===c.id).reduce((s,e)=>s+num(e.a),0);
+    const diff=plan-fact;
+    const w=plan>0?Math.min(100,fact/plan*100):(fact>0?100:0);
+    return `<div class="cat">
+      <div class="top"><strong>${esc(c.n)}</strong>
+        <span><input class="pct" data-p="${i}" inputmode="decimal" value="${c.p}" aria-label="Процент ${esc(c.n)}"> %</span></div>
+      <div class="bar"><i class="${diff<0?'over':''}" style="width:${w}%"></i></div>
+      <div class="top mut"><span>Факт ${fmt(fact)} из ${fmt(plan)}</span>
+        <span class="${diff<0?'bad':'ok'}">${diff<0?'перерасход ':'осталось '}${fmt(Math.abs(diff))}</span></div>
+    </div>`}).join('');
+  const ps=S.cats.reduce((s,c)=>s+num(c.p),0);
+  const pw=Math.abs(ps-100)<0.001?`<span class="ok">Сумма процентов: 100%</span>`:`<span class="bad">Сумма процентов: ${Math.round(ps*100)/100}%, должно быть 100%</span>`;
+  $('pwarn').innerHTML=pw;$('pwarn2').innerHTML=pw;
+
+  // journal
+  const list=mexp.slice().sort((a,b)=>b.d.localeCompare(a.d)||b.id-a.id);
+  $('jr').innerHTML=list.length?list.map(e=>`<div class="j">
+      <span class="mut">${e.d.slice(8,10)}.${e.d.slice(5,7)}</span>
+      <span>${esc(cn(e.c))}${e.t?` <span class="mut">· ${esc(e.t)}</span>`:''}</span>
+      <b>${fmt(num(e.a))}</b>
+      <button class="x" data-del="${e.id}" aria-label="Удалить">×</button></div>`).join('')
+    :'<div class="mut">В этом месяце трат пока нет. Выбери категорию, введи сумму и нажми «Добавить трату».</div>';
+
+  // settings
+  $('fixed').innerHTML=S.fixed.map((f,i)=>`<div class="fx">
+      <input data-fn="${i}" value="${esc(f.n)}" aria-label="Название">
+      <input data-fa="${i}" inputmode="decimal" value="${f.a}" aria-label="Сумма">
+      <button class="x" data-fd="${i}" aria-label="Удалить">×</button></div>`).join('');
+  $('catset').innerHTML=S.cats.map((c,i)=>`<div class="fx">
+      <input data-cn="${i}" value="${esc(c.n)}" aria-label="Название категории">
+      <input data-cp="${i}" inputmode="decimal" value="${c.p}" aria-label="Процент">
+      <button class="x" data-cd="${i}" aria-label="Удалить категорию">×</button></div>`).join('');
+}
+
+document.addEventListener('click',e=>{
+  const t=e.target;
+  if(t.dataset.i!==undefined){sel=+t.dataset.i;render();return}
+  if(t.dataset.cd!==undefined){
+    const c=S.cats[+t.dataset.cd];const n=S.exp.filter(x=>x.c===c.id).length;
+    const msg=n?`Удалить категорию «${c.n}» и ${n} трат(ы) в ней?`:`Удалить категорию «${c.n}»?`;
+    if(confirm(msg)){S.exp=S.exp.filter(x=>x.c!==c.id);S.cats.splice(+t.dataset.cd,1);save();render()}
+    return}
+  if(t.dataset.del){S.exp=S.exp.filter(x=>x.id!=t.dataset.del);save();render();return}
+  if(t.dataset.fd!==undefined){S.fixed.splice(+t.dataset.fd,1);save();render();return}
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.dataset.p!==undefined){S.cats[+t.dataset.p].p=num(t.value);save();render()}
+  else if(t.dataset.cn!==undefined){S.cats[+t.dataset.cn].n=t.value.trim()||'Без названия';save();render()}
+  else if(t.dataset.cp!==undefined){S.cats[+t.dataset.cp].p=num(t.value);save();render()}
+  else if(t.dataset.fn!==undefined){S.fixed[+t.dataset.fn].n=t.value;save()}
+  else if(t.dataset.fa!==undefined){S.fixed[+t.dataset.fa].a=num(t.value);save();render()}
+});
+$('sal').addEventListener('change',e=>{S.salary=num(e.target.value);save();render()});
+$('addCat').onclick=()=>{S.cats.push({id:nid(),n:'Новая категория',p:0});save();render()};
+$('addFx').onclick=()=>{S.fixed.push({n:'Новый платёж',a:0});save();render()};
+$('month').addEventListener('change',e=>{if(e.target.value){month=e.target.value;render()}});
+
+function add(){
+  const a=num($('amt').value);
+  if(!S.cats.length)return;
+  if(a<=0){$('amt').focus();return}
+  const d=$('dt').value||today();
+  S.exp.push({id:Date.now(),d,c:sel,a,t:$('note').value.trim()});
+  save();
+  $('amt').value='';$('note').value='';
+  month=d.slice(0,7);$('month').value=month;
+  render();$('amt').focus();
+}
+$('addBtn').onclick=add;
+$('amt').addEventListener('keydown',e=>{if(e.key==='Enter')add()});
+
+$('csv').onclick=()=>{
+  const rows=[['Дата','Категория','Сумма','Заметка']].concat(
+    S.exp.slice().sort((a,b)=>a.d.localeCompare(b.d)).map(e=>[e.d,cn(e.c),String(num(e.a)).replace('.',','),e.t||'']));
+  const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='траты.csv';document.body.appendChild(a);a.click();a.remove();
+};
+
+$('dt').value=today();$('month').value=month;$('sal').value=S.salary||'';
+render();
+</script>
+</body>
+</html>
